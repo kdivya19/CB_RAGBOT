@@ -1,0 +1,17 @@
+# Ignore Virtual Environment (CRITICAL: Reduces size by GBs)
+venv/
+.venv/
+
+# Ignore Environment Variables (Security)
+.env
+
+# Ignore Python Cache
+__pycache__/
+*.pyc
+
+# Ignore Local/Old Files
+streamdemo.py
+helper_code.py 
+codebasics.png
+README.md
+.git/

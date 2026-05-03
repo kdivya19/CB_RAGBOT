@@ -1,0 +1,14 @@
+langchain==0.2.14
+langchain-community==0.2.12
+langchain-google-genai==1.0.10
+
+faiss-cpu==1.7.4
+sentence-transformers
+transformers
+huggingface_hub
+
+fastapi==0.110.0
+uvicorn==0.29.0
+
+python-dotenv==1.0.0
+numpy<2
