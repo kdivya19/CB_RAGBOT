@@ -8,3 +8,9 @@ __pycache__/
 
 # Virtual environment
 venv/
+
+# VS Code
+.vscode/
+
+# State Files
+token_usage.json

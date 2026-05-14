@@ -1,7 +1,9 @@
+import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from final_helper import get_qa_chain
+from token_tracker import tracker
 
 app = FastAPI(title="Codebasics Q&A API")
 
@@ -12,14 +14,25 @@ chain = get_qa_chain()
 # 2. Define Input Structure (Data Validation)
 class QuestionRequest(BaseModel):
     text: str
+    session_id: str | None = None  # Frontend sends this for memory
 
 # 3. API Endpoint (for developers / other apps)
 @app.post("/ask")
 async def ask_question(request: QuestionRequest):
     try:
-        # Calling the chain
-        response = chain.invoke(request.text)
-        return {"answer": response}
+        session_id = request.session_id or str(uuid.uuid4())
+        response = chain.invoke(
+            {"question": request.text},
+            config={"configurable": {"session_id": session_id}}
+        )
+        stats = tracker.get_stats()
+        return {
+            "answer": response,
+            "session_id": session_id,
+            "active_llm": tracker.get_active_llm_name(),
+            "tokens_used_today": stats["total_tokens"],
+            "usage_percent": stats["usage_percent"],
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -27,6 +40,12 @@ async def ask_question(request: QuestionRequest):
 @app.get("/health")
 def health_check():
     return {"status": "API is running"}
+
+# 4b. Token Usage Stats
+@app.get("/stats")
+def token_stats():
+    """Live token usage dashboard data."""
+    return tracker.get_stats()
 
 # 5. Frontend — HTML Chat Interface
 @app.get("/", response_class=HTMLResponse)
@@ -295,6 +314,7 @@ def serve_frontend():
         const chatArea = document.getElementById('chat-area');
         const askBtn = document.getElementById('ask-btn');
         const emptyState = document.getElementById('empty-state');
+        let currentSessionId = null;
 
         // Allow Enter key to submit
         input.addEventListener('keydown', function(e) {
@@ -322,10 +342,15 @@ def serve_frontend():
             askBtn.textContent = 'Thinking...';
 
             try {
+                const payload = { text: question };
+                if (currentSessionId) {
+                    payload.session_id = currentSessionId;
+                }
+
                 const response = await fetch('/ask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: question })
+                    body: JSON.stringify(payload)
                 });
 
                 const data = await response.json();
@@ -333,6 +358,7 @@ def serve_frontend():
                 loadingEl.remove();
 
                 if (response.ok) {
+                    currentSessionId = data.session_id;
                     addMessage(data.answer, 'answer');
                 } else {
                     addMessage('Error: ' + (data.detail || 'Something went wrong'), 'error');
